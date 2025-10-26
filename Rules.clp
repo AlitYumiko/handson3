@@ -2,25 +2,9 @@
 ;; Reglas Recomender System
 ;; ------------------------------------------------
 
-;; --- REGLAS DE CÁLCULO INICIAL (Prioridad Alta) ---
+;; --- REGLAS DE OFERTAS Y PROMOCIONES ---
 
-;; Regla 1: Calcular el total de la orden antes de aplicar descuentos
-(defrule calcular-total-orden
-   (declare (salience 10)) ; Alta prioridad
-   ?o <- (orden-compra (orden-id ?oid) (total 0.0))
-   (accumulate (bind ?suma 0.0) ; Inicializa ?suma
-               (bind ?suma (+ ?suma (* ?p ?q))) ; Acción por cada match
-               ?suma ; Variable de resultado
-               (linea-item (orden-id ?oid) (precio-unitario ?p) (cantidad ?q))
-   )
-   =>
-   (modify ?o (total ?suma))
-   (printout t "CÁLCULO (Orden " ?oid "): Total inicial calculado: $" ?suma crlf)
-)
-
-;; --- REGLAS DE OFERTAS Y PROMOCIONES (Ejemplos 1, 2 y 3) ---
-
-;; Regla 2: [Ejemplo Usuario 1] iPhone 16 con Banamex -> 24 MSI
+;; Regla 1: Oferta iPhone 16 con Banamex
 (defrule oferta-iPhone16-banamex
    (orden-compra (orden-id ?oid) (tipo-pago tarjeta) (tdc-id ?tidc))
    (linea-item (orden-id ?oid) (sku ?sku))
@@ -30,7 +14,7 @@
    (printout t "OFERTA APLICADA (Orden " ?oid "): 24 meses sin intereses por iPhone 16 con Banamex." crlf)
 )
 
-;; Regla 3: [Ejemplo Usuario 2] Samsung Note 21 con Liverpool VISA -> 12 MSI
+;; Regla 2: Oferta Note 21 con Liverpool
 (defrule oferta-Note21-liverpool
    (orden-compra (orden-id ?oid) (tipo-pago tarjeta) (tdc-id ?tidc))
    (linea-item (orden-id ?oid) (sku ?sku))
@@ -40,7 +24,7 @@
    (printout t "OFERTA APLICADA (Orden " ?oid "): 12 meses sin intereses por Samsung Note 21 con Liverpool VISA." crlf)
 )
 
-;; Regla 4: [Ejemplo Usuario 3] MacBook Air + iPhone 16 (contado) -> Vales
+;; Regla 3: Generar Vales por Combo Apple Contado
 (defrule generar-vales-combo-apple-contado
    ?o <- (orden-compra (orden-id ?oid) (tipo-pago contado) (cliente-id ?cid) (total ?t & :(> ?t 0)))
    (linea-item (orden-id ?oid) (sku ?sku-mb))
@@ -55,9 +39,9 @@
    )
 )
 
-;; --- REGLAS DE RECOMENDACIÓN (Ejemplo 4 y más) ---
+;; --- REGLAS DE RECOMENDACIÓN ---
 
-;; Regla 5: [Ejemplo Usuario 4] Compra Smartphone -> 15% desc en accesorios
+;; Regla 4: Recomendar Accesorios para Smartphone
 (defrule recomienda-accesorios-smartphone
    (linea-item (orden-id ?oid) (sku ?sku))
    (smartphone (sku ?sku))
@@ -68,7 +52,7 @@
    (printout t "RECOMENDACIÓN (Orden " ?oid "): ¡Protege tu nuevo Smartphone! Tienes 15% de descuento en fundas y micas." crlf)
 )
 
-;; Regla 6: Recomendación de Hub USB-C para MacBook
+;; Regla 5: Recomendar Hub para MacBook
 (defrule recomienda-hub-macbook
    (linea-item (orden-id ?oid) (sku ?sku))
    (computador (sku ?sku) (marca apple))
@@ -79,7 +63,7 @@
    (printout t "RECOMENDACIÓN (Orden " ?oid "): ¿Compraste una MacBook? Podrías necesitar un adaptador/hub USB-C." crlf)
 )
 
-;; Regla 7: Recomendación de Cargador Apple
+;; Regla 6: Recomendar Cargador Apple
 (defrule recomienda-cargador-apple
    (linea-item (orden-id ?oid) (sku ?sku))
    (smartphone (sku ?sku) (marca apple))
@@ -92,7 +76,7 @@
 
 ;; --- REGLAS DE CLASIFICACIÓN DE CLIENTE (Mayorista/Menudista) ---
 
-;; Regla 8: Clasificación MAYORISTA (cantidad > 10)
+;; Regla 7: Clasificar Cliente como Mayorista
 (defrule clasificar-mayorista
    (linea-item (orden-id ?oid) (cantidad ?q & :(> ?q 10))) 
    ?o <- (orden-compra (orden-id ?oid) (cliente-id ?cid))
@@ -102,7 +86,7 @@
    (modify ?c (nivel oro))
 )
 
-;; Regla 9: Mensaje de bienvenida a Mayorista (si ya era oro)
+;; Regla 8: Mensaje de Bienvenida a Mayorista
 (defrule mensaje-mayorista
    (linea-item (orden-id ?oid) (cantidad ?q & :(> ?q 10))) 
    (orden-compra (orden-id ?oid) (cliente-id ?cid))
@@ -111,7 +95,7 @@
    (printout t "CLASIFICACIÓN (Cliente " ?cid "): Detectado como MAYORISTA (cantidad: " ?q "). Beneficios ORO aplicados." crlf)
 )
 
-;; Regla 10: Clasificación MENUDISTA (cantidad <= 10)
+;; Regla 9: Clasificar Cliente como Menudista
 (defrule clasificar-menudista
    (orden-compra (orden-id ?oid) (cliente-id ?cid))
    (linea-item (orden-id ?oid) (cantidad ?q & :(< ?q 11)))
@@ -122,18 +106,20 @@
 
 ;; --- REGLAS DE DESCUENTOS ---
 
-;; Regla 11: Descuento 5% para Clientes ORO
+;; Regla 10: Descuento para Cliente ORO
 (defrule descuento-cliente-oro
    (declare (salience -5)) ; Prioridad media-baja
-   ?o <- (orden-compra (orden-id ?oid) (cliente-id ?cid) (total ?t & :(> ?t 0)))
+   ;; Se añade la condición (descuento-oro-aplicado no)
+   ?o <- (orden-compra (orden-id ?oid) (cliente-id ?cid) (total ?t & :(> ?t 0)) (descuento-oro-aplicado no))
    (cliente (cliente-id ?cid) (nivel oro))
    =>
    (bind ?descuento (* ?t 0.05))
-   (modify ?o (total (- ?t ?descuento)))
+   ;; Se modifica el total Y la bandera (descuento-oro-aplicado yes)
+   (modify ?o (total (- ?t ?descuento)) (descuento-oro-aplicado yes))
    (printout t "DESCUENTO APLICADO (Orden " ?oid "): 5% ($" ?descuento ") para cliente ORO. Nuevo total: $" (- ?t ?descuento) crlf)
 )
 
-;; Regla 12: Descuento 10% en Computadoras Dell (Contado)
+;; Regla 11: Descuento en Dell por Pago de Contado
 (defrule descuento-dell-contado
    (declare (salience -5))
    ?o <- (orden-compra (orden-id ?oid) (tipo-pago contado) (total ?t))
@@ -145,7 +131,7 @@
    (printout t "DESCUENTO APLICADO (Orden " ?oid "): 10% ($" ?descuento ") en Dell XPS por pago de contado. Nuevo total: $" (- ?t ?descuento) crlf)
 )
 
-;; Regla 13: Aplicar descuento de 15% en Accesorios (si se compró smartphone)
+;; Regla 12: Aplicar Descuento en Accesorios
 (defrule aplicar-descuento-accesorios
    (declare (salience -5))
    ?o <- (orden-compra (orden-id ?oid) (total ?t))
@@ -161,22 +147,28 @@
 
 ;; --- OTRAS OFERTAS BANCARIAS Y ENVÍOS ---
 
-;; Regla 14: Oferta Envío Gratis (Clientes ORO)
+;; Regla 13: Oferta Envío Gratis para Cliente ORO
 (defrule oferta-envio-gratis-oro
-   (orden-compra (orden-id ?oid) (cliente-id ?cid))
+   ;; Se añade la condición (promo-envio-aplicada no)
+   ?o <- (orden-compra (orden-id ?oid) (cliente-id ?cid) (promo-envio-aplicada no))
    (cliente (cliente-id ?cid) (nivel oro))
    =>
    (printout t "OFERTA APLICADA (Orden " ?oid "): Envío estándar GRATIS para cliente ORO." crlf)
+   ;; Se actualiza la bandera para que no se repita
+   (modify ?o (promo-envio-aplicada yes))
 )
 
-;; Regla 15: Oferta Envío Gratis (Compra > $4000)
+;; Regla 14: Oferta Envío Gratis por Monto de Compra
 (defrule oferta-envio-gratis-monto
-   (orden-compra (orden-id ?oid) (total ?t & :(> ?t 4000.0)))
+   ;; Se añade la condición (promo-envio-aplicada no)
+   ?o <- (orden-compra (orden-id ?oid) (total ?t & :(> ?t 4000.0)) (promo-envio-aplicada no))
    =>
    (printout t "OFERTA APLICADA (Orden " ?oid "): Envío estándar GRATIS por compra mayor a $4000." crlf)
+   ;; Se actualiza la bandera para que no se repita
+   (modify ?o (promo-envio-aplicada yes))
 )
 
-;; Regla 16: Promo Puntos Dobles BBVA
+;; Regla 15: Promoción Puntos Dobles BBVA
 (defrule promo-banco-bbva
    (orden-compra (orden-id ?oid) (tipo-pago tarjeta) (tdc-id ?tidc))
    (tarjeta-credito (tdc-id ?tidc) (banco bbva))
@@ -184,7 +176,7 @@
    (printout t "OFERTA BANCARIA (Orden " ?oid "): ¡Tu compra con BBVA genera Puntos Dobles!" crlf)
 )
 
-;; Regla 17: 3x2 en Accesorios Genéricos
+;; Regla 16: Oferta 3x2 en Accesorios Genéricos
 (defrule oferta-3x2-accesorios-genericos
    (linea-item (orden-id ?oid) (sku ?sku1) (cantidad ?q1 & :(>= ?q1 2)))
    (accesorio (sku ?sku1) (marca generico))
@@ -193,47 +185,11 @@
 )
 
 
-;; --- REGLAS DE MANEJO DE STOCK (Prioridad Baja) ---
+;; --- REGLAS DE MANEJO DE STOCK Y CÁLCULO DE TOTAL ---
 
-;; Regla 18: Actualización de Stock (Smartphone)
-(defrule actualizar-stock-smartphone
-   (declare (salience -10))
-   ?o <- (orden-compra (orden-id ?oid) (estado procesando))
-   ?li <- (linea-item (orden-id ?oid) (sku ?sku) (cantidad ?q))
-   ?p <- (smartphone (sku ?sku) (stock ?s & :(>= ?s ?q)))
-   =>
-   (printout t "STOCK (Actualizando): " ?q " unidades de " ?sku " (Stock anterior: " ?s "). Nuevo stock: " (- ?s ?q) crlf)
-   (modify ?p (stock (- ?s ?q)))
-   (retract ?li) ; Item procesado
-)
-
-;; Regla 19: Actualización de Stock (Computador)
-(defrule actualizar-stock-computador
-   (declare (salience -10))
-   ?o <- (orden-compra (orden-id ?oid) (estado procesando))
-   ?li <- (linea-item (orden-id ?oid) (sku ?sku) (cantidad ?q))
-   ?p <- (computador (sku ?sku) (stock ?s & :(>= ?s ?q)))
-   =>
-   (printout t "STOCK (Actualizando): " ?q " unidades de " ?sku " (Stock anterior: " ?s "). Nuevo stock: " (- ?s ?q) crlf)
-   (modify ?p (stock (- ?s ?q)))
-   (retract ?li)
-)
-
-;; Regla 20: Actualización de Stock (Accesorio)
-(defrule actualizar-stock-accesorio
-   (declare (salience -10))
-   ?o <- (orden-compra (orden-id ?oid) (estado procesando))
-   ?li <- (linea-item (orden-id ?oid) (sku ?sku) (cantidad ?q))
-   ?p <- (accesorio (sku ?sku) (stock ?s & :(>= ?s ?q)))
-   =>
-   (printout t "STOCK (Actualizando): " ?q " unidades de " ?sku " (Stock anterior: " ?s "). Nuevo stock: " (- ?s ?q) crlf)
-   (modify ?p (stock (- ?s ?q)))
-   (retract ?li)
-)
-
-;; Regla 21: Manejo de Falta de Stock
+;; Regla 17: Manejo de Falta de Stock
 (defrule falta-stock
-   (declare (salience -15)) ; Prioridad muy baja
+   (declare (salience 15)) ; Prioridad muy alta
    ?o <- (orden-compra (orden-id ?oid) (estado procesando))
    ?li <- (linea-item (orden-id ?oid) (sku ?sku) (cantidad ?q))
    (or (smartphone (sku ?sku) (stock ?s & :(< ?s ?q)))
@@ -246,16 +202,58 @@
    (retract ?li)
 )
 
-;; Regla 22: Marcar Orden como Completada
+;; Regla 18: Procesar Item Smartphone (Stock y Total)
+(defrule procesar-item-smartphone
+   (declare (salience 10))
+   ?o <- (orden-compra (orden-id ?oid) (estado procesando) (total ?t))
+   ?li <- (linea-item (orden-id ?oid) (sku ?sku) (cantidad ?q) (precio-unitario ?p))
+   ?prod <- (smartphone (sku ?sku) (stock ?s & :(>= ?s ?q)))
+   =>
+   (bind ?subtotal (* ?p ?q))
+   (printout t "CÁLCULO (Orden " ?oid "): Sumando $" ?subtotal crlf)
+   (printout t "STOCK (Actualizando): " ?q " unidades de " ?sku " (Stock anterior: " ?s "). Nuevo stock: " (- ?s ?q) crlf)
+   (modify ?o (total (+ ?t ?subtotal)))
+   (modify ?prod (stock (- ?s ?q)))
+   (retract ?li) ; Item procesado
+)
+
+;; Regla 19: Procesar Item Computador (Stock y Total)
+(defrule procesar-item-computador
+   (declare (salience 10))
+   ?o <- (orden-compra (orden-id ?oid) (estado procesando) (total ?t))
+   ?li <- (linea-item (orden-id ?oid) (sku ?sku) (cantidad ?q) (precio-unitario ?p))
+   ?prod <- (computador (sku ?sku) (stock ?s & :(>= ?s ?q)))
+   =>
+   (bind ?subtotal (* ?p ?q))
+   (printout t "CÁLCULO (Orden " ?oid "): Sumando $" ?subtotal crlf)
+   (printout t "STOCK (Actualizando): " ?q " unidades de " ?sku " (Stock anterior: " ?s "). Nuevo stock: " (- ?s ?q) crlf)
+   (modify ?o (total (+ ?t ?subtotal)))
+   (modify ?prod (stock (- ?s ?q)))
+   (retract ?li)
+)
+
+;; Regla 20: Procesar Item Accesorio (Stock y Total)
+(defrule procesar-item-accesorio
+   (declare (salience 10))
+   ?o <- (orden-compra (orden-id ?oid) (estado procesando) (total ?t))
+   ?li <- (linea-item (orden-id ?oid) (sku ?sku) (cantidad ?q) (precio-unitario ?p))
+   ?prod <- (accesorio (sku ?sku) (stock ?s & :(>= ?s ?q)))
+   =>
+   (bind ?subtotal (* ?p ?q))
+   (printout t "CÁLCULO (Orden " ?oid "): Sumando $" ?subtotal crlf)
+   (printout t "STOCK (Actualizando): " ?q " unidades de " ?sku " (Stock anterior: " ?s "). Nuevo stock: " (- ?s ?q) crlf)
+   (modify ?o (total (+ ?t ?subtotal)))
+   (modify ?prod (stock (- ?s ?q)))
+   (retract ?li)
+)
+
+;; Regla 21: Marcar Orden como Completada
 (defrule completar-orden
    (declare (salience -20)) ; Prioridad más baja
    ?o <- (orden-compra (orden-id ?oid) (estado procesando) (total ?t))
    (not (linea-item (orden-id ?oid))) ; No quedan items por procesar
    =>
    (modify ?o (estado completada))
-   ;; Usamos 'integer' para truncar (o 'round' si prefieres redondear al más cercano)
-   ;; y dividimos por 100.0 (float) para obtener los 2 decimales.
    (bind ?total-redondeado (/ (integer (* 100 ?t)) 100.0))
-   
    (printout t "ESTADO (Orden " ?oid "): COMPLETADA. Total final: $" ?total-redondeado crlf)
 )
