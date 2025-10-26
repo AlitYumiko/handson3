@@ -70,3 +70,8 @@
    (slot cantidad (type INTEGER))
    (slot precio-unitario (type FLOAT))
 )
+
+(deftemplate orden-total-temporal
+   (slot orden-id (type INTEGER))
+   (slot total (type FLOAT))
+)
