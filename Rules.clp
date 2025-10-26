@@ -8,9 +8,9 @@
 (defrule calcular-total-orden
    (declare (salience 10)) ; Alta prioridad
    ?o <- (orden-compra (orden-id ?oid) (total 0.0))
-   (accumulate (bind ?suma 0)
-               (progn (bind ?item-total (* ?p ?q)) (bind ?suma (+ ?suma ?item-total)))
-               ?suma
+   (accumulate (bind ?suma 0.0) ; Inicializa ?suma
+               (bind ?suma (+ ?suma (* ?p ?q))) ; Acción por cada match
+               ?suma ; Variable de resultado
                (linea-item (orden-id ?oid) (precio-unitario ?p) (cantidad ?q))
    )
    =>
@@ -48,7 +48,7 @@
    (linea-item (orden-id ?oid) (sku ?sku-ip))
    (smartphone (sku ?sku-ip) (marca apple) (modelo "iPhone16"))
    =>
-   (bind ?monto-vale (* (floor (/ ?t 1000)) 100))
+   (bind ?monto-vale (* (integer (/ ?t 1000)) 100))
    (if (> ?monto-vale 0) then
       (assert (vale (vale-id (str-cat "V-" ?oid)) (cliente-id ?cid) (monto ?monto-vale)))
       (printout t "PROMOCIÓN APLICADA (Orden " ?oid "): Se generó un vale por $" ?monto-vale " por la compra del combo Apple al contado." crlf)
@@ -61,7 +61,6 @@
 (defrule recomienda-accesorios-smartphone
    (linea-item (orden-id ?oid) (sku ?sku))
    (smartphone (sku ?sku))
-   ;; <-- CORREGIDO: Sintaxis (not (and ...)) y comillas en tipo
    (not (and (linea-item (orden-id ?oid) (sku ?sku-acc))
              (accesorio (sku ?sku-acc) (tipo ?tipo &:(or (eq ?tipo "funda") (eq ?tipo "mica"))))
         ))
@@ -73,7 +72,6 @@
 (defrule recomienda-hub-macbook
    (linea-item (orden-id ?oid) (sku ?sku))
    (computador (sku ?sku) (marca apple))
-   ;; <-- CORREGIDO: Sintaxis (not (and ...))
    (not (and (linea-item (orden-id ?oid) (sku ?sku-acc))
              (accesorio (sku ?sku-acc) (tipo "hub usb-c"))
         ))
@@ -85,7 +83,6 @@
 (defrule recomienda-cargador-apple
    (linea-item (orden-id ?oid) (sku ?sku))
    (smartphone (sku ?sku) (marca apple))
-   ;; <-- CORREGIDO: Sintaxis (not (and ...))
    (not (and (linea-item (orden-id ?oid) (sku ?sku-acc))
              (accesorio (sku ?sku-acc) (tipo "cargador"))
         ))
@@ -97,7 +94,7 @@
 
 ;; Regla 8: Clasificación MAYORISTA (cantidad > 10)
 (defrule clasificar-mayorista
-   (linea-item (orden-id ?oid) (cantidad ?q & :(> ?q 10))) ;; 
+   (linea-item (orden-id ?oid) (cantidad ?q & :(> ?q 10))) 
    ?o <- (orden-compra (orden-id ?oid) (cliente-id ?cid))
    ?c <- (cliente (cliente-id ?cid) (nivel ?n &:(neq ?n oro)))
    =>
@@ -107,7 +104,7 @@
 
 ;; Regla 9: Mensaje de bienvenida a Mayorista (si ya era oro)
 (defrule mensaje-mayorista
-   (linea-item (orden-id ?oid) (cantidad ?q & :(> ?q 10))) ;; 
+   (linea-item (orden-id ?oid) (cantidad ?q & :(> ?q 10))) 
    (orden-compra (orden-id ?oid) (cliente-id ?cid))
    (cliente (cliente-id ?cid) (nivel oro))
    =>
@@ -118,7 +115,6 @@
 (defrule clasificar-menudista
    (orden-compra (orden-id ?oid) (cliente-id ?cid))
    (linea-item (orden-id ?oid) (cantidad ?q & :(< ?q 11)))
-   ; (Se asume que la mayoría son menudistas, solo imprimimos si no es mayorista)
    (not (linea-item (orden-id ?oid) (cantidad ?q-m & :(> ?q-m 10))))
    =>
    (printout t "CLASIFICACIÓN (Cliente " ?cid "): Detectado como MENUDISTA (cantidad: " ?q ")." crlf)
@@ -156,12 +152,11 @@
    (linea-item (orden-id ?oid) (sku ?sku-sp)) ; Hay un smartphone en la orden
    (smartphone (sku ?sku-sp))
    ?li-acc <- (linea-item (orden-id ?oid) (sku ?sku-acc) (precio-unitario ?p-acc) (cantidad ?q-acc))
-   (accesorio (sku ?sku-acc) (tipo ?tipo &:(or (eq ?tipo "funda") (eq ?tipo "mica")))) ;; 
+   (accesorio (sku ?sku-acc) (tipo ?tipo &:(or (eq ?tipo "funda") (eq ?tipo "mica")))) 
    =>
    (bind ?descuento (* ?p-acc ?q-acc 0.15))
    (modify ?o (total (- ?t ?descuento)))
    (printout t "DESCUENTO APLICADO (Orden " ?oid "): 15% ($" ?descuento ") en " ?tipo ". Nuevo total: $" (- ?t ?descuento) crlf)
-   ;; <-- CORREGIDO: Se eliminó el (retract ?li-acc) que causaba un error lógico.
 )
 
 ;; --- OTRAS OFERTAS BANCARIAS Y ENVÍOS ---
@@ -254,9 +249,13 @@
 ;; Regla 22: Marcar Orden como Completada
 (defrule completar-orden
    (declare (salience -20)) ; Prioridad más baja
-   ?o <- (orden-compra (orden-id ?oid) (estado procesando))
+   ?o <- (orden-compra (orden-id ?oid) (estado procesando) (total ?t))
    (not (linea-item (orden-id ?oid))) ; No quedan items por procesar
    =>
    (modify ?o (estado completada))
-   (printout t "ESTADO (Orden " ?oid "): COMPLETADA. Total final: $" (round (* 100 (?o:total)) / 100) crlf)
+   ;; Usamos 'integer' para truncar (o 'round' si prefieres redondear al más cercano)
+   ;; y dividimos por 100.0 (float) para obtener los 2 decimales.
+   (bind ?total-redondeado (/ (integer (* 100 ?t)) 100.0))
+   
+   (printout t "ESTADO (Orden " ?oid "): COMPLETADA. Total final: $" ?total-redondeado crlf)
 )
