@@ -16,14 +16,15 @@
    (computador (sku "DEL-XPS-N") (marca dell) (modelo "XPS 15") (color negro) (precio 42000.0) (stock 30))
 
    ;; --- Accesorios (Stock inicial) ---
-   (accesorio (sku "ACC-FUN-IP16") (tipo "funda") (marca apple) (precio 1200.0) (stock 100)) ;; 
-   (accesorio (sku "ACC-MIC-IP16") (tipo "mica") (marca generico) (precio 800.0) (stock 100)) ;; 
-   (accesorio (sku "ACC-HUB-C") (tipo "hub usb-c") (marca generico) (precio 900.0) (stock 200)) ;
-   (accesorio (sku "ACC-CAR-APL") (tipo "cargador") (marca apple) (precio 1000.0) (stock 80)) ;; 
+   (accesorio (sku "ACC-FUN-IP16") (tipo "funda") (marca apple) (precio 1200.0) (stock 100))
+   (accesorio (sku "ACC-MIC-IP16") (tipo "mica") (marca generico) (precio 800.0) (stock 100))
+   (accesorio (sku "ACC-HUB-C") (tipo "hub usb-c") (marca generico) (precio 900.0) (stock 200))
+   (accesorio (sku "ACC-CAR-APL") (tipo "cargador") (marca apple) (precio 1000.0) (stock 80))
+   
    ;; --- Clientes Registrados ---
-   (cliente (cliente-id 1) (nombre Juan Perez) (nivel oro))
-   (cliente (cliente-id 2) (nombre Maria Lopez) (nivel plata))
-   (cliente (cliente-id 3) (nombre Carlos Ruiz) (nivel bronce))
+   (cliente (cliente-id 1) (nombre "Juan" "Perez") (nivel oro))
+   (cliente (cliente-id 2) (nombre "Maria" "Lopez") (nivel plata))
+   (cliente (cliente-id 3) (nombre "Carlos" "Ruiz") (nivel bronce))
 
    ;; --- Tarjetas de Clientes ---
    (tarjeta-credito (tdc-id "TDC-1A") (cliente-id 1) (banco banamex) (grupo visa) (exp-date "12-25"))
