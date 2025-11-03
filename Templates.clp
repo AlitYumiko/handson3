@@ -61,8 +61,9 @@
    ;; --- FIN DE CORRECCIÓN ---
 )
 (deftemplate linea-item
-   (slot order-id (type INTEGER))
+   (slot orden-id (type INTEGER))
    (slot sku (type STRING))
    (slot cantidad (type INTEGER))
    (slot precio-unitario (type FLOAT))
 )
+
